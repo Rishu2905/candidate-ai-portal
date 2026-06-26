@@ -1,0 +1,19 @@
+[project]
+name = "candidate-ai-portal"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "apscheduler>=3.11.2",
+    "asyncpg>=0.31.0",
+    "fastapi>=0.138.1",
+    "groq>=1.5.0",
+    "httpx>=0.28.1",
+    "motor>=3.7.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+    "python-jose[cryptography]>=3.5.0",
+    "uvicorn>=0.49.0",
+]
