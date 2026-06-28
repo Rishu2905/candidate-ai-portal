@@ -146,12 +146,15 @@ flowchart LR
 
     Market["Market Analysis"]
 
+    SubAgent["Mock Interview SubAgent"]
+
     Memory["Agent State"]
 
     Messages --> Memory
     Candidate --> Memory
     Jobs --> Memory
     Market --> Memory
+    Mock Interview SubAgent --> Memory
 
     Memory --> LLM
 ```
@@ -176,17 +179,25 @@ flowchart TD
 
     Applications["Applications"]
 
+    States["States"]
+
+    Interview Chats["Interview Chats"]
+
     Agent --> MemoryManager
 
     MemoryManager --> Resume
     MemoryManager --> Goal
     MemoryManager --> Skills
     MemoryManager --> Applications
+    MemoryManager --> States
+    MemoryManager --> Interview Chats
 
     Resume --> Mongo
     Goal --> Mongo
     Skills --> Mongo
+    States --> Mongo
     Applications --> SQL
+    Interview Chats --> SQL
 ```
 ## 🔗 Service Communication
 
@@ -198,12 +209,12 @@ sequenceDiagram
     participant React
 
     participant SpringBoot
+    participant Parsing pipeline
 
     participant Python
-
-    participant Mongo
     participant LLM
-    participant Parsing pipeline
+    participant Mongo
+    
 
     Candidate->>React: Upload Resume
 
@@ -215,13 +226,15 @@ sequenceDiagram
 
     SpringBoot->>Python: GET /analysis
 
-    Python->>LLM: Takes Action/Calls tool
+    Python->> Mongo: Ask State
+    Mongo->> Python: State
+    Python->>LLM: Sends Resume data + Goals + State + System Prompt
+    LLM->>Python: Tools called + updates state
 
-    LLM->>Python: Tools called
-
-    Python->>LLM: Tool Data
+    Python->>LLM: State Updated with Tool Data
 
     LLM->>Python: Answer
+    Python->>Mongo : Store State Data
 
     Python->>SpringBoot: Analysis Result
 
