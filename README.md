@@ -288,7 +288,7 @@ sequenceDiagram
 
     SpringBoot->> Python MicroService : GET /analysis
 
-    Python->> LLM
+    Python->> LLM : Takes Action/Calls tool
 
     LLM->> Python: Tools called
 
