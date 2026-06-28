@@ -274,9 +274,12 @@ sequenceDiagram
 
     participant SpringBoot
 
-    participant PythonAI
+    participant Python
 
     participant Mongo
+    participant Python MicroService
+    participant LLM
+    participant Parsing pipeline
 
     Candidate->>React: Upload Resume
 
@@ -286,18 +289,18 @@ sequenceDiagram
 
     SpringBoot-->>React: Upload Successful
 
-    SpringBoot->> Python MicroService : GET /analysis
+    SpringBoot->>Python MicroService: GET /analysis
 
-    Python->> LLM
+    Python->>LLM: Takes Action/Calls tool
 
-    LLM->> Python: Tools called
+    LLM->>Python: Tools called
 
-    Python->> LLM: Tool Data
+    Python->>LLM: Tool Data
 
-    LLM->> Python: Answer
+    LLM->>Python: Answer
 
-    Python->> SpringBoot : Analysis Result
+    Python->>SpringBoot: Analysis Result
 
-    SpringBoot->> React: Results
+    SpringBoot->>React: Results
 
 ```
