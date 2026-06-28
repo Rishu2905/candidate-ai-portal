@@ -34,14 +34,17 @@ Interview rules:
 
 Final assessment format (return ONLY when interview is complete):
 {{
-    "type": "assessment",
-    "overall_performance": "<STRONG|GOOD|AVERAGE|WEAK>",
-    "score": <integer 0-100>,
-    "strong_areas": ["area1", "area2"],
-    "weak_areas": ["area1", "area2"],
-    "projects_verified": ["project1", "project2"],
-    "recommendation": "<2-3 sentence summary of candidate performance>",
-    "suggested_topics_to_study": ["topic1", "topic2"]
+    "interview_id": "uuid",
+    "user_id":"uuid",
+    "strong_areas": ["System design", "Spring Boot knowledge"],
+    "weak_areas": ["Depth of knowledge on distributed systems", 
+                   "Content delivery — answers too vague",
+                   "Could not defend architectural decisions"],
+    "verdict": "SELECTED" | "REJECTED" | "NEEDS_IMPROVEMENT",
+    "verdict_reason": "Candidate demonstrated strong practical knowledge but lacks depth in distributed systems which is critical for this role.",
+    "recommendation": "Focus on: 1) Study CAP theorem and distributed system patterns 2) Practice explaining WHY you made architectural decisions, not just WHAT you built 3) Mock system design interviews before reapplying.",
+    "score": 72,
+    "overall_performance": "GOOD" | "STRONG" | "AVERAGE" | "WEAK"
 }}
 
 During the interview, respond naturally as an interviewer — no JSON, 
