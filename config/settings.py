@@ -6,8 +6,10 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
     # MongoDB
-    MONGO_URI: str
-    MONGO_DB_NAME: str = "resumedata"
+    MONGO_RESUME_URI: str
+    MONGO_MEMORY_URI: str
+    MONGO_RESUME_DB: str = "resumedata"
+    MONGO_MEMORY_DB: str= "candidate-memory"
 
     # PostgreSQL
     POSTGRES_DSN: str
