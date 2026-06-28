@@ -277,7 +277,6 @@ sequenceDiagram
     participant Python
 
     participant Mongo
-    participant Python MicroService
     participant LLM
     participant Parsing pipeline
 
@@ -289,7 +288,7 @@ sequenceDiagram
 
     SpringBoot-->>React: Upload Successful
 
-    SpringBoot->>Python MicroService: GET /analysis
+    SpringBoot->>Python: GET /analysis
 
     Python->>LLM: Takes Action/Calls tool
 
