@@ -154,7 +154,7 @@ flowchart LR
     Candidate --> Memory
     Jobs --> Memory
     Market --> Memory
-    Mock Interview SubAgent --> Memory
+    SubAgent --> Memory
 
     Memory --> LLM
 ```
@@ -181,7 +181,7 @@ flowchart TD
 
     States["States"]
 
-    Interview Chats["Interview Chats"]
+    InterviewChats["Interview Chats"]
 
     Agent --> MemoryManager
 
@@ -190,14 +190,14 @@ flowchart TD
     MemoryManager --> Skills
     MemoryManager --> Applications
     MemoryManager --> States
-    MemoryManager --> Interview Chats
+    MemoryManager --> InterviewChats
 
     Resume --> Mongo
     Goal --> Mongo
     Skills --> Mongo
     States --> Mongo
     Applications --> SQL
-    Interview Chats --> SQL
+    InterviewChats --> SQL
 ```
 ## 🔗 Service Communication
 
@@ -220,7 +220,8 @@ sequenceDiagram
 
     React->>SpringBoot: POST /upload
 
-    SpringBoot->>Parsing pipeline: Resume Parsing,structuring and storing
+    SpringBoot->>Parsing pipeline: Resume Parsing,structuring
+    SpringBoot->>Mongo: Data Stored
 
     SpringBoot-->>React: Upload Successful
 
