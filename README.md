@@ -282,7 +282,22 @@ sequenceDiagram
 
     React->>SpringBoot: POST /upload
 
-    SpringBoot: resume parsing and storing->>PythonAI: Give Insights
+    SpringBoot->>Parsing pipeline: Resume Parsing,structuring and storing
 
     SpringBoot-->>React: Upload Successful
+
+    SpringBoot->> Python MicroService : GET /analysis
+
+    Python->> LLM
+
+    LLM->> Python: Tools called
+
+    Python->> LLM: Tool Data
+
+    LLM->> Python: Answer
+
+    Python->> SpringBoot : Analysis Result
+
+    SpringBoot->> React: Results
+
 ```
