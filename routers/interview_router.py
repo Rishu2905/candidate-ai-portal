@@ -6,37 +6,50 @@ from security.jwt_verify import verify_token
 from pydantic import BaseModel
 from datetime import datetime
 import uuid
+import json
 import logging
+from bson import ObjectId
+from db.mongo_client import mongo
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Mock Interview"])
 
-
 class MessageRequest(BaseModel):
     content: str
+# interview_router.py
+
+class StartInterviewRequest(BaseModel):
+    user_id: str
+    doc_id: str    # ← added — Java sends this now required to store interview data imn sql
+    mongo_id: str #<- required for accessing data from mongo
 
 
-@router.post("/interview/start")
-async def start_interview(
-    doc_id: str,
-    user=Depends(verify_token)
-):
-    """
-    Candidate clicks "Take Mock Interview" button.
-    Creates interview session, returns opening question.
-    """
-    user_id = user["user_id"]
-
-    # fetch candidate profile from MongoDB
+@router.post("/start")
+async def start_interview(req: StartInterviewRequest):
     collection = get_document_content()
-    doc = await collection.find_one({"doc_id": doc_id})
+    
+    # debug — print exactly what we received
+    print(f"Received mongo_id: {req.mongo_id}")
+    print(f"Received user_id: {req.user_id}")
+    
+    # debug — print all documents in collection
+    from db.mongo_client import mongo
+    db = mongo.resume_client["hr-dev"]
+    collection=db["resumes"]
+    try:
+        from bson import ObjectId
+        doc = await collection.find_one({"_id": ObjectId(req.mongo_id)})
+        print(f"Query by ObjectId result: {doc}")
+    except Exception as e:
+        print(f"ObjectId conversion failed: {e}")
+        doc = await collection.find_one({"_id": req.doc_id})
+        print(f"Query by string result: {doc}")
 
     if not doc:
         raise HTTPException(
             status_code=404,
-            detail="Resume not found. Upload resume first."
+            detail="Resume not found."
         )
-
     skills = doc.get("skills", [])
     projects = doc.get("projects", [])
     experience = doc.get("experience", [])
@@ -47,18 +60,18 @@ async def start_interview(
             detail="Resume has no skills or projects to interview on."
         )
 
-    # get job title from analysis if available
-    job_title = doc.get("job_title", "Software Engineer")
-
     # create interview session in SQL
     interview_id = str(uuid.uuid4())
     await execute(
         """
-        INSERT INTO interviews 
+        INSERT INTO interviews
         (interview_id, user_id, doc_id, job_title, status, created_at)
         VALUES ($1, $2, $3, $4, 'IN_PROGRESS', NOW())
         """,
-        interview_id, user_id, doc_id, job_title
+        interview_id,
+        req.user_id,
+        req.doc_id,
+        doc.get("jobTitle", "Software Engineer")
     )
 
     # sub-agent generates opening question
@@ -70,46 +83,51 @@ async def start_interview(
         candidate_message="START_INTERVIEW"
     )
 
-    # store interviewer opening question in chat history
+    opening_question = response.get("message", "")
+
+    # store opening question
     await execute(
         """
         INSERT INTO interview_chats
         (chat_id, interview_id, role, content, stored_at)
         VALUES ($1, $2, 'interviewer', $3, NOW())
         """,
-        str(uuid.uuid4()), interview_id,
-        response.get("message", "")
+        str(uuid.uuid4()),
+        interview_id,
+        opening_question
     )
 
-    logger.info(f"Interview started — interview_id: {interview_id}")
+    logger.info(
+        f"Interview started — "
+        f"interview_id: {interview_id}, "
+        f"user_id: {req.user_id}, "
+        f"doc_id: {req.doc_id}"
+    )
 
     return {
         "interview_id": interview_id,
-        "message": response.get("message"),
-        "type": "question"
+        "type": "question",
+        "message": opening_question
     }
 
+@router.post("/{interview_id}/message")
+async def send_message(interview_id: str, req: MessageRequest):
 
-@router.post("/interview/{interview_id}/message")
-async def send_message(
-    interview_id: str,
-    req: MessageRequest,
-    user=Depends(verify_token)
-):
-    """
-    Candidate sends their answer.
-    Loads full history, calls sub-agent, returns next question or verdict.
-    """
-    user_id = user["user_id"]
-
-    # verify interview belongs to this user
     interview = await fetchrow(
         """
-        SELECT i.interview_id, i.doc_id, i.status, i.job_title
+        SELECT
+        i.interview_id,
+        i.doc_id,
+        i.user_id,
+        i.status,
+        i.job_title,
+        d.mongo_id
         FROM interviews i
-        WHERE i.interview_id = $1 AND i.user_id = $2
+        JOIN documents d
+        ON i.doc_id = d.document_id
+        WHERE i.interview_id = $1
         """,
-        interview_id, user_id
+        interview_id
     )
 
     if not interview:
@@ -118,17 +136,15 @@ async def send_message(
     if interview["status"] == "COMPLETED":
         raise HTTPException(status_code=400, detail="Interview already completed")
 
-    # load full conversation history from SQL
+    # load history
     chat_rows = await fetch(
         """
         SELECT role, content FROM interview_chats
-        WHERE interview_id = $1
-        ORDER BY stored_at ASC
+        WHERE interview_id = $1 ORDER BY stored_at ASC
         """,
         interview_id
     )
 
-    # build history in Groq message format
     conversation_history = [
         {
             "role": "assistant" if row["role"] == "interviewer" else "user",
@@ -147,15 +163,17 @@ async def send_message(
         str(uuid.uuid4()), interview_id, req.content
     )
 
-    # fetch candidate profile for sub-agent
-    collection = get_document_content()
-    doc = await collection.find_one({"doc_id": interview["doc_id"]})
+    # fetch doc directly by docId — stored in interviews table
+    #collection = get_document_content()
+    db = mongo.resume_client["hr-dev"]
+    collection=db["resumes"]
+    doc = await collection.find_one({"_id": ObjectId(interview["mongo_id"])
+})
 
-    # call sub-agent with full history + new message
     response = await mock_interview_tool(
-        skills=doc.get("skills", []),
-        projects=doc.get("projects", []),
-        experience=doc.get("experience", []),
+        skills=doc.get("skills", []) if doc else [],
+        projects=doc.get("projects", []) if doc else [],
+        experience=doc.get("experience", []) if doc else [],
         conversation_history=conversation_history,
         candidate_message=req.content
     )
@@ -163,26 +181,11 @@ async def send_message(
     response_type = response.get("type")
 
     if response_type == "assessment":
-        # interview complete — store verdict
-        await _store_verdict(interview_id, user_id, response)
-
-        # mark interview complete
+        await _store_verdict(interview_id, interview["user_id"], response)
         await execute(
-            """
-            UPDATE interviews
-            SET status = 'COMPLETED', completed_at = NOW()
-            WHERE interview_id = $1
-            """,
+            "UPDATE interviews SET status='COMPLETED', completed_at=NOW() WHERE interview_id=$1",
             interview_id
         )
-
-        logger.info(
-            f"Interview completed — "
-            f"interview_id: {interview_id}, "
-            f"verdict: {response.get('verdict')}, "
-            f"score: {response.get('score')}"
-        )
-
         return {
             "type": "assessment",
             "interview_id": interview_id,
@@ -193,28 +196,67 @@ async def send_message(
             "strong_areas": response.get("strong_areas", []),
             "weak_areas": response.get("weak_areas", []),
             "recommendation": response.get("recommendation"),
-            "suggested_topics_to_study": response.get(
-                "suggested_topics_to_study", []
-            )
+            "suggested_topics_to_study": response.get("suggested_topics_to_study", [])
         }
 
-    # regular question — store and return
+    next_question = response.get("message", "")
     await execute(
         """
         INSERT INTO interview_chats
         (chat_id, interview_id, role, content, stored_at)
         VALUES ($1, $2, 'interviewer', $3, NOW())
         """,
-        str(uuid.uuid4()), interview_id,
-        response.get("message", "")
+        str(uuid.uuid4()), interview_id, next_question
     )
 
     return {
         "type": "question",
         "interview_id": interview_id,
-        "message": response.get("message")
+        "message": next_question
     }
+# comment out this methid before pushing to github
+@router.get("/debug/collections")
+async def debug_collections():
+    """
+    Temporary debug endpoint.
+    Remove after fixing.
+    """
+    from db.mongo_client import mongo
+    
+    # list all databases on this cluster
+    databases = await mongo.resume_client.list_database_names()
+    db = mongo.resume_client["hr-dev"]
 
+    collections = await db.list_collection_names()
+    collection=db["resumes"]
+    #document = await collections[0].find(0)
+    documents = await collection.find_one({"_id":ObjectId("6a4204a8e2f5f340cf9b2574")})
+
+    print("collections :",collections)
+    print("collection data: ",documents)
+    #print("collection data:",document)
+    print("db list")
+    print(databases)
+
+    
+    # list all collections in resumedata db
+    collections = await mongo.resume_db.list_collection_names()
+    print("collection list")
+    print(collections)
+    
+    # count documents in resumes collection
+    count = await mongo.resume_db["resumes"].count_documents({})
+    
+    # fetch first document raw
+    first_doc = await mongo.resume_db["resumes"].find_one({})
+    
+    return {
+        "databases_on_cluster": databases,
+        "collections_in_resumedata": collections,
+        "document_count_in_resumes": count,
+        "first_document_id": str(first_doc["_id"]) if first_doc else None,
+        "first_document_keys": list(first_doc.keys()) if first_doc else []
+    }
 
 @router.get("/interview/{interview_id}/verdict")
 async def get_verdict(

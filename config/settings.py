@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     MONGO_RESUME_URI: str
     MONGO_MEMORY_URI: str
     MONGO_RESUME_DB: str = "resumedata"
-    MONGO_MEMORY_DB: str= "candidate-memory"
+    MONGO_MEMORY_DB: str
 
     # PostgreSQL
     POSTGRES_DSN: str
