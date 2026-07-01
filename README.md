@@ -205,40 +205,27 @@ flowchart TD
 sequenceDiagram
 
     participant Candidate
-
     participant React
-
     participant SpringBoot
     participant Parsing pipeline
-
     participant Python
     participant LLM
     participant Mongo
-    
 
     Candidate->>React: Upload Resume
-
     React->>SpringBoot: POST /upload
-
     SpringBoot->>Parsing pipeline: Resume Parsing,structuring
     SpringBoot->>Mongo: Data Stored
-
     SpringBoot-->>React: Upload Successful
-
     SpringBoot->>Python: GET /analysis
-
     Python->> Mongo: Ask State
     Mongo->> Python: State
     Python->>LLM: Sends Resume data + Goals + State + System Prompt
     LLM->>Python: Tools called + updates state
-
     Python->>LLM: State Updated with Tool Data
-
     LLM->>Python: Answer
     Python->>Mongo : Store State Data
-
     Python->>SpringBoot: Analysis Result
-
     SpringBoot->>React: Results
 ## 🏗️ System Architecture
 
