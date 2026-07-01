@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from config.settings import settings
 from db.mongo_client import connect_mongo, close_mongo
 from db.postgres_client import connect_postgres, close_postgres
-from scheduler.market_tool_scheduler import start_scheduler, stop_scheduler
-from routers import analysis_router, interview_router, admin_router
+from routers.analysis_router import router as analysis_router
+from routers.interview_router import router as interview_router
+from routers.admin_router import router as admin_router
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -13,33 +14,39 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── startup ──────────────────────────────────────────────────
-    logger.info("Starting hraiportal-ai service...")
+    # startup
     await connect_mongo()
     await connect_postgres()
-    start_scheduler()
-    logger.info("All connections established. Service ready.")
+
+    # scheduler is optional — prototype works without it
+    try:
+        from scheduler.market_tool_scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        logger.warning(f"Scheduler not started: {e}")
+
     yield
-    # ── shutdown ─────────────────────────────────────────────────
-    logger.info("Shutting down hraiportal-ai service...")
-    stop_scheduler()
+
+    # shutdown
+    try:
+        from scheduler.market_tool_scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception as e:
+        logger.warning(f"Scheduler stop error: {e}")
+
     await close_mongo()
     await close_postgres()
-    logger.info("Shutdown complete.")
 
 
 app = FastAPI(
     title="hraiportal-ai",
-    description="AI microservice for candidate portal",
-    version="1.0.0",
     debug=settings.DEBUG,
     lifespan=lifespan
 )
 
-# ── routers ───────────────────────────────────────────────────────
-app.include_router(analysis_router.router, prefix="/ai")
-app.include_router(interview_router.router, prefix="/ai")
-app.include_router(admin_router.router, prefix="/admin")
+app.include_router(analysis_router, prefix="/api/candidate")
+app.include_router(interview_router, prefix="/api/candidate/interview")
+app.include_router(admin_router, prefix="/admin")
 
 
 @app.get("/health")
@@ -47,6 +54,5 @@ async def health():
     return {
         "status": "ok",
         "service": "hraiportal-ai",
-        "model": settings.GROQ_MODEL,
-        "mongo_db": settings.MONGO_DB_NAME
+        "model": settings.GROQ_MODEL
     }

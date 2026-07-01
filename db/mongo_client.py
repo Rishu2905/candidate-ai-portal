@@ -49,12 +49,12 @@ async def close_mongo():
 # ── collection accessors ──────────────────────────────────────────────────────
 
 def get_document_content():
-    """
-    resumedata cluster.
-    Written by Java after PDF parse.
-    Read by skill_extraction_tool.
-    """
-    return mongo.resume_db["document_content"]
+    print(f"Accessing db: {mongo.resume_db.name}")
+    print(f"Accessing collection: {mongo.resume_db["hr-dev"]}")
+    db = mongo.resume_client["hr-dev"]
+    collections = db.list_collection_names()
+    print("collections: ",collections)
+    return mongo.resume_db["hr-dev"]
 
 
 def get_analysis_content():
