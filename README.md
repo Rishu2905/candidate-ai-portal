@@ -203,7 +203,6 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-
     participant Candidate
     participant React
     participant SpringBoot
@@ -211,7 +210,6 @@ sequenceDiagram
     participant Python
     participant LLM
     participant Mongo
-
     Candidate->>React: Upload Resume
     React->>SpringBoot: POST /upload
     SpringBoot->>Parsing pipeline: Resume Parsing,structuring
@@ -227,6 +225,7 @@ sequenceDiagram
     Python->>Mongo : Store State Data
     Python->>SpringBoot: Analysis Result
     SpringBoot->>React: Results
+```
 ## 🏗️ System Architecture
 
 ```mermaid
